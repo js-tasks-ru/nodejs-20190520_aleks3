@@ -11,5 +11,3 @@ rules:
     - code: 100
   require-jsdoc:
     - off
-  linebreak-style:
-    - 0
