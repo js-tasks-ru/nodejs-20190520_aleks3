@@ -12,7 +12,6 @@ app.use(require('koa-bodyparser')());
 handleErrors = (ctx, err) => {
   const errors = {errors: {}};
 
-  // eslint-disable-next-line guard-for-in
   for (key in err.errors) {
     console.log(key);
     errors.errors[key] = err.errors[key].properties.message;
