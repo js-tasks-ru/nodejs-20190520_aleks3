@@ -9,6 +9,7 @@ module.exports = new LocalStrategy({usernameField: 'email', session: false}, asy
   const user = await User.findOne({email});
   if (!user) {
     done(null, false, 'Нет такого пользователя');
+    return;
   }
 
   const passwordCorrect = await user.checkPassword(password);
