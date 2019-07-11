@@ -50,10 +50,7 @@ router.post('/login', async (ctx, next) => {
 router.get('/oauth/:provider', async (ctx, next) => {
   const provider = ctx.params.provider;
 
-  await passport.authenticate(
-      provider,
-      config.providers[provider].options,
-  )(ctx, next);
+  await passport.authenticate(provider, config.providers[provider].options)(ctx, next);
 
   ctx.status = 200;
   ctx.body = {status: 'ok', location: ctx.response.get('location')};
@@ -77,12 +74,35 @@ router.post('/oauth_callback', handleMongooseValidationError, async (ctx, next) 
   })(ctx, next);
 });
 
-router.post('/register', async (ctx, next) => {
+router.post('/register', handleMongooseValidationError, async (ctx, next) => {
+  const body = ctx.request.body;
+  const token = uuid();
+  const user = await User.create(Object.assign({}, body, {verificationToken: token}));
+  await user.setPassword(body.password);
+  user.save();
 
+  await sendMail({
+    template: 'confirmation',
+    locals: {token},
+    to: body.email,
+    subject: 'Подтвердите почту',
+  });
+  ctx.body = {status: 'ok'};
 });
 
 router.post('/confirm', async (ctx) => {
+  const {verificationToken} = ctx.request.body;
+  const user = await User.findOne({verificationToken});
 
+  if (user) {
+    user.verificationToken = undefined;
+    user.save();
+
+    ctx.body = {token: verificationToken};
+  } else {
+    ctx.status = 400;
+    ctx.body = {error: 'Ссылка подтверждения недействительна или устарела'};
+  }
 });
 
 app.use(router.routes());
