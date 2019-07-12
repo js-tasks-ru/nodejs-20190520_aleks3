@@ -30,10 +30,10 @@ app.use(async (ctx, next) => {
 app.use((ctx, next) => {
   ctx.login = async function login(user) {
     const token = uuid();
-
+    const session = await Session.create({token, user: user.id, lastVisit: Date.now()});
     return token;
   };
-  
+
   return next();
 });
 
@@ -43,16 +43,33 @@ router.use(async (ctx, next) => {
   const header = ctx.request.get('Authorization');
   if (!header) return next();
 
+  const token = header.split(' ')[1];
+
+  if (!token) return next();
+  const session = await Session.findOne({token}).populate('user');
+  if (!session) {
+    ctx.status = 401;
+    ctx.body = ctx.throw(401, 'Неверный аутентификационный токен');
+  }
+
+  session.lastVisit = new Date();
+  session.save();
+  ctx.user = session.user;
+
   return next();
 });
 
 router.post('/login', require('./controllers/login'));
 router.get('/oauth/:provider', require('./controllers/oauth').oauth);
-router.post('/oauth_callback', handleMongooseValidationError, require('./controllers/oauth').oauthCallback);
+router.post(
+    '/oauth_callback',
+    handleMongooseValidationError,
+    require('./controllers/oauth').oauthCallback
+);
 router.post('/register', handleMongooseValidationError, require('./controllers/register'));
 router.post('/confirm', require('./controllers/confirm'));
 
-router.get('/me', require('./controllers/me'));
+router.get('/me', mustBeAuthenticated, require('./controllers/me'));
 
 app.use(router.routes());
 
